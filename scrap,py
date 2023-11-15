@@ -1,0 +1,75 @@
+import scrapy
+import csv
+
+class DigitalMarketingToolsSpider(scrapy.Spider):
+    name = 'sproutsocial_spider'
+    start_urls = ['https://sproutsocial.com/insights/digital-marketing-tools/#social-media-marketing-tools']
+
+    def parse(self, response):
+        tool_entries = response.css('div.Post-content > h3')
+
+        extracted_data = []
+
+        for index, entry in enumerate(tool_entries):
+            tool_name = entry.css('a::text').get()
+            description = self.extract_description(entry, response, index)
+
+            # Add logic to categorize based on keywords
+            category = self.categorize_tool(description)
+
+            data = {
+                'Tool Name': tool_name,
+                'Description': description,
+                'Category': category,
+            }
+
+            extracted_data.append(data)
+
+        # Save data to a CSV file
+        self.save_to_csv(extracted_data)
+
+    def extract_description(self, entry, response, index):
+        description = ''
+        sibling_paragraphs = entry.xpath('./following-sibling::p')
+        
+        for i in range(index + 1, len(sibling_paragraphs)):
+            paragraph = sibling_paragraphs[i]
+            if paragraph.css('h3'):
+                break
+            
+            paragraph_text = paragraph.xpath('string()').get().strip()
+            description += paragraph_text + '\n'
+        
+        return description
+
+
+ 
+    def categorize_tool(self, description):
+         keywords_to_category = {
+             'CRM': ['customer relationship', 'crm'],
+             'Analysis': ['analytics', 'analysis'],
+             'Email Marketing': ['email marketing', 'email campaigns'],
+             'SEO': ['seo', 'search engine optimization'],
+             'Social Media': ['social media', 'social presence','social media management'],
+             'Lead Generation': ['lead generation', 'prospecting'],
+             'Content Creation': ['content creation', 'graphics'],
+             # Add more categories and keywords as needed
+         }
+ 
+         description = description.lower()
+ 
+         for category, keywords in keywords_to_category.items():
+             for keyword in keywords:
+                 if keyword in description:
+                     return category
+ 
+         return 'Other'  # Default category if no keyword matches
+ 
+    def save_to_csv(self, data):
+         filename = 'usable_dataset1.csv'
+         with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+             fieldnames = ['Tool Name', 'Description', 'Category']
+             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+             writer.writeheader()
+             for row in data:
+                 writer.writerow(row)
